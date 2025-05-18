@@ -209,11 +209,12 @@
         console.error('Error cargando retos:', err);
       }
     }
+    
     document.getElementById('goToLogin').addEventListener('click', (e) => {
-  e.preventDefault();
-  registerSection.classList.add('hidden');
-  loginSection.classList.remove('hidden');
-});
+      e.preventDefault();
+      registerSection.classList.add('hidden');
+      loginSection.classList.remove('hidden');
+    });
   </script>
 </body>
 </html>
