@@ -99,203 +99,213 @@
             <h5 class="modal-title">Detalle del reto</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body" id="challengeDetails">
-            <!-- Aquí se insertan los datos del reto -->
-          </div>
+          <div class="modal-body" id="challengeDetails"></div>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- Bootstrap JS y tu script personalizado -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-   const registerForm = document.getElementById('registerForm');
-const loginForm = document.getElementById('loginForm');
-const logoutBtn = document.getElementById('logoutBtn');
+    const API_URL = 'https://wedare.onrender.com';
 
-const registerSection = document.getElementById('registerSection');
-const loginSection = document.getElementById('loginSection');
-const challengeSection = document.getElementById('challengeSection');
-const logoutBar = document.getElementById('logoutBar');
+    const registerForm = document.getElementById('registerForm');
+    const loginForm = document.getElementById('loginForm');
+    const logoutBtn = document.getElementById('logoutBtn');
 
-const challengeForm = document.getElementById('challengeForm');
-const challengeList = document.getElementById('challengeList');
+    const registerSection = document.getElementById('registerSection');
+    const loginSection = document.getElementById('loginSection');
+    const challengeSection = document.getElementById('challengeSection');
+    const logoutBar = document.getElementById('logoutBar');
 
-const messageEl = document.getElementById('message');
-const loginMessage = document.getElementById('loginMessage');
+    const challengeForm = document.getElementById('challengeForm');
+    const challengeList = document.getElementById('challengeList');
 
-let authToken = null;
-let currentUserId = null;
+    const messageEl = document.getElementById('message');
+    const loginMessage = document.getElementById('loginMessage');
 
-const API_URL = 'https://wedare.onrender.com';
+    let authToken = null;
+    let currentUserId = null;
 
-// Registro
-registerForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
+    // Registro
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
 
-  if (password !== confirmPassword) {
-    messageEl.textContent = 'Las contraseñas no coinciden.';
-    messageEl.className = 'text-danger';
-    return;
-  }
+      if (password !== confirmPassword) {
+        messageEl.textContent = 'Las contraseñas no coinciden.';
+        messageEl.className = 'text-danger';
+        return;
+      }
 
-  try {
-    const res = await fetch(`${API_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      try {
+        const res = await fetch(`${API_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        messageEl.textContent = data.message || data.error;
+        messageEl.className = res.ok ? 'text-success' : 'text-danger';
+        if (res.ok) {
+          registerForm.reset();
+          registerSection.classList.add('hidden');
+          loginSection.classList.remove('hidden');
+        }
+      } catch {
+        messageEl.textContent = 'Error al registrar.';
+        messageEl.className = 'text-danger';
+      }
     });
-    const data = await res.json();
-    messageEl.textContent = data.message || data.error;
-    messageEl.className = res.ok ? 'text-success' : 'text-danger';
-    if (res.ok) {
-      registerForm.reset();
+
+    // Login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const res = await fetch(`${API_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        loginMessage.textContent = data.message || data.error;
+        loginMessage.className = res.ok ? 'text-success' : 'text-danger';
+
+        if (res.ok && data.token) {
+          authToken = data.token;
+          currentUserId = data.userId;
+          localStorage.setItem('authToken', authToken);
+          localStorage.setItem('currentUserId', currentUserId);
+          loginForm.reset();
+          loginSection.classList.add('hidden');
+          challengeSection.classList.remove('hidden');
+          logoutBar.classList.remove('hidden');
+          loadChallenges();
+        }
+      } catch {
+        loginMessage.textContent = 'Error al iniciar sesión.';
+        loginMessage.className = 'text-danger';
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      authToken = null;
+      currentUserId = null;
+      localStorage.clear();
+      registerSection.classList.remove('hidden');
+      loginSection.classList.add('hidden');
+      challengeSection.classList.add('hidden');
+      logoutBar.classList.add('hidden');
+      challengeList.innerHTML = '';
+    });
+
+    // Crear reto
+    challengeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = document.getElementById('challengeText').value;
+      const type = document.getElementById('challengeType').value;
+
+      try {
+        const res = await fetch(`${API_URL}/api/challenges`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ text, type })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          challengeForm.reset();
+          loadChallenges();
+        } else {
+          alert(data.error || 'Error al crear reto');
+        }
+      } catch {
+        alert('Error al conectar con el servidor');
+      }
+    });
+
+    // Cargar retos
+    async function loadChallenges() {
+      try {
+        const res = await fetch(`${API_URL}/api/challenges`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const challenges = await res.json();
+        challengeList.innerHTML = '';
+        challenges.forEach(({ _id, text, type, createdBy }) => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item challenge-item';
+          li.innerHTML = `<strong>${type === 'public' ? 'Público' : 'Privado'}:</strong> ${text}`;
+          li.addEventListener('click', () => showChallengeDetails(_id, text, type, createdBy));
+          challengeList.appendChild(li);
+        });
+      } catch (err) {
+        console.error('Error cargando retos:', err);
+      }
+    }
+
+    // Mostrar detalles en modal
+    function showChallengeDetails(id, text, type, createdBy) {
+      const container = document.getElementById('challengeDetails');
+      container.innerHTML = `
+        <p><strong>Descripción:</strong> ${text}</p>
+        <p><strong>Tipo:</strong> ${type}</p>
+        <p><strong>Creador:</strong> ${createdBy === currentUserId ? 'Tú' : 'Otro usuario'}</p>
+        ${createdBy === currentUserId ? `<button class="btn btn-danger btn-sm" onclick="deleteChallenge('${id}')">Eliminar</button>` : ''}
+      `;
+
+      const modal = new bootstrap.Modal(document.getElementById('challengeModal'));
+      modal.show();
+    }
+
+    // Eliminar reto
+    async function deleteChallenge(id) {
+      if (!confirm('¿Estás seguro de eliminar este reto?')) return;
+      try {
+        const res = await fetch(`${API_URL}/api/challenges/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (res.ok) {
+          loadChallenges();
+          bootstrap.Modal.getInstance(document.getElementById('challengeModal')).hide();
+        } else {
+          alert('Error al eliminar el reto');
+        }
+      } catch {
+        alert('Error de conexión');
+      }
+    }
+
+    // Restaurar sesión si existe en localStorage
+    window.addEventListener('load', () => {
+      authToken = localStorage.getItem('authToken');
+      currentUserId = localStorage.getItem('currentUserId');
+      if (authToken && currentUserId) {
+        registerSection.classList.add('hidden');
+        loginSection.classList.add('hidden');
+        challengeSection.classList.remove('hidden');
+        logoutBar.classList.remove('hidden');
+        loadChallenges();
+      }
+    });
+
+    // Ir al login desde el registro
+    document.getElementById('goToLogin').addEventListener('click', (e) => {
+      e.preventDefault();
       registerSection.classList.add('hidden');
       loginSection.classList.remove('hidden');
-    }
-  } catch {
-    messageEl.textContent = 'Error al registrar.';
-    messageEl.className = 'text-danger';
-  }
-});
-
-// Login
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('loginEmail').value;
-  const password = document.getElementById('loginPassword').value;
-
-  try {
-    const res = await fetch(`${API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
     });
-    const data = await res.json();
-    loginMessage.textContent = data.message || data.error;
-    loginMessage.className = res.ok ? 'text-success' : 'text-danger';
-
-    if (res.ok && data.token) {
-      authToken = data.token;
-      currentUserId = data.userId;
-      loginForm.reset();
-      loginSection.classList.add('hidden');
-      challengeSection.classList.remove('hidden');
-      logoutBar.classList.remove('hidden');
-      loadChallenges();
-    }
-  } catch {
-    loginMessage.textContent = 'Error al iniciar sesión.';
-    loginMessage.className = 'text-danger';
-  }
-});
-
-// Logout
-logoutBtn.addEventListener('click', () => {
-  authToken = null;
-  currentUserId = null;
-  registerSection.classList.remove('hidden');
-  loginSection.classList.add('hidden');
-  challengeSection.classList.add('hidden');
-  logoutBar.classList.add('hidden');
-  challengeList.innerHTML = '';
-});
-
-// Crear reto
-challengeForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const text = document.getElementById('challengeText').value;
-  const type = document.getElementById('challengeType').value;
-
-  try {
-    const res = await fetch(`${API_URL}/api/challenges`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify({ text, type })
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      challengeForm.reset();
-      loadChallenges();
-    } else {
-      alert(data.error || 'Error al crear reto');
-    }
-  } catch {
-    alert('Error al conectar con el servidor');
-  }
-});
-
-// Cargar retos
-async function loadChallenges() {
-  try {
-    const res = await fetch(`${API_URL}/api/challenges`, {
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-    const challenges = await res.json();
-    challengeList.innerHTML = '';
-    challenges.forEach(({ _id, text, type, createdBy }) => {
-      const li = document.createElement('li');
-      li.className = 'list-group-item challenge-item';
-      li.innerHTML = `<strong>${type === 'public' ? 'Público' : 'Privado'}:</strong> ${text}`;
-      li.addEventListener('click', () => showChallengeDetails(_id, text, type, createdBy));
-      challengeList.appendChild(li);
-    });
-  } catch (err) {
-    console.error('Error cargando retos:', err);
-  }
-}
-
-// Mostrar detalles en modal
-function showChallengeDetails(id, text, type, createdBy) {
-  const container = document.getElementById('challengeDetails');
-  container.innerHTML = `
-    <p><strong>Descripción:</strong> ${text}</p>
-    <p><strong>Tipo:</strong> ${type}</p>
-    <p><strong>Creador:</strong> ${createdBy === currentUserId ? 'Tú' : 'Otro usuario'}</p>
-    ${createdBy === currentUserId ? `
-      <button class="btn btn-danger btn-sm" onclick="deleteChallenge('${id}')">Eliminar</button>
-    ` : ''}
-  `;
-
-  const modal = new bootstrap.Modal(document.getElementById('challengeModal'));
-  modal.show();
-}
-
-// Eliminar reto
-async function deleteChallenge(id) {
-  if (!confirm('¿Estás seguro de eliminar este reto?')) return;
-  try {
-    const res = await fetch(`${API_URL}/api/challenges/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-    if (res.ok) {
-      loadChallenges();
-      bootstrap.Modal.getInstance(document.getElementById('challengeModal')).hide();
-    } else {
-      alert('Error al eliminar el reto');
-    }
-  } catch {
-    alert('Error de conexión');
-  }
-}
-
-// Cambiar entre pantallas
-document.getElementById('goToLogin').addEventListener('click', (e) => {
-  e.preventDefault();
-  registerSection.classList.add('hidden');
-  loginSection.classList.remove('hidden');
-});
-
   </script>
 </body>
 </html>
