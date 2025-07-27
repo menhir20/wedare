@@ -198,6 +198,11 @@
             'Authorization': `Bearer ${authToken}`
           }
         });
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+          authToken = null;
+          challengeSection.classList.add('hidden');
+          registerSection.classList.remove('hidden');
+        });
         const challenges = await res.json();
         challengeList.innerHTML = '';
         challenges.forEach(({ text, type }) => {
